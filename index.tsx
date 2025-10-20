@@ -84,8 +84,14 @@ const useStockAnalysisGenerator = () => {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to generate analysis with Gemini.');
+        let errorText;
+        try {
+          const errorData = await res.json();
+          errorText = errorData.error || errorData.details || `Server error: ${res.status}`;
+        } catch (parseError) {
+          errorText = `Request failed: ${res.status} ${res.statusText}. The server might be down or misconfigured.`;
+        }
+        throw new Error(errorText);
       }
 
       const data = await res.json();
