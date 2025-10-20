@@ -1,7 +1,7 @@
 // /api/generate-analysis.ts
 import { GoogleGenAI } from '@google/genai';
 
-export default async (request, context) => {
+export default async (request: Request) => {
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ message: 'Method Not Allowed' }), {
       status: 405,
@@ -28,7 +28,7 @@ export default async (request, context) => {
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    const genAIResponse = await ai.models.generateContent({
+    const stream = await ai.models.generateContentStream({
         model: 'gemini-2.5-pro',
         contents: prompt,
         config: {
@@ -36,11 +36,26 @@ export default async (request, context) => {
         },
     });
     
-    const text = genAIResponse.text;
+    const encoder = new TextEncoder();
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of stream) {
+          const text = chunk.text;
+          if (text) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+          }
+        }
+        controller.close();
+      },
+    });
 
-    return new Response(JSON.stringify({ text }), {
+    return new Response(readableStream, {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
     });
 
   } catch (error) {
