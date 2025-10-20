@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { marked } from 'marked';
@@ -77,7 +78,7 @@ const useStockAnalysisGenerator = () => {
     setGeminiResponse('');
 
     try {
-      const res = await fetch('/api/generate-analysis', {
+      const res = await fetch('/.netlify/functions/generate-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: generatedSimpleContent }),
