@@ -84,46 +84,12 @@ const useStockAnalysisGenerator = () => {
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'An unknown server error occurred.' }));
+        const errorData = await res.json();
         throw new Error(errorData.error || 'Failed to generate analysis with Gemini.');
       }
-      
-      if (!res.body) {
-        throw new Error("Response body is empty.");
-      }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-
-      const processStream = async () => {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
-          
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n\n').filter(line => line.trim() !== '');
-
-          for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                  try {
-                    const jsonString = line.substring(6);
-                    if (jsonString) {
-                        const data = JSON.parse(jsonString);
-                        if (data.text) {
-                            setGeminiResponse(prev => prev + data.text);
-                        }
-                    }
-                  } catch (e) {
-                      console.error("Failed to parse stream chunk JSON:", e, "Chunk:", line);
-                  }
-              }
-          }
-        }
-      };
-
-      await processStream();
+      const data = await res.json();
+      setGeminiResponse(data.text);
 
     } catch (e) {
       console.error(e);

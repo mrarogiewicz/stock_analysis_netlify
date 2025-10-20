@@ -1,7 +1,7 @@
 // /api/generate-analysis.ts
 import { GoogleGenAI } from '@google/genai';
 
-export default async (request: Request) => {
+export default async (request, context) => {
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ message: 'Method Not Allowed' }), {
       status: 405,
@@ -28,34 +28,19 @@ export default async (request: Request) => {
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    const stream = await ai.models.generateContentStream({
-        model: 'gemini-2.5-flash',
+    const genAIResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-pro',
         contents: prompt,
         config: {
           systemInstruction: "You are a financial analyst providing a stock analysis. Respond in well-structured Markdown format. Use headings, bold text, bullet points, and tables to present the data clearly and professionally, similar to a GitHub README file.",
         },
     });
     
-    const encoder = new TextEncoder();
-    const readableStream = new ReadableStream({
-      async start(controller) {
-        for await (const chunk of stream) {
-          const text = chunk.text;
-          if (text) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-          }
-        }
-        controller.close();
-      },
-    });
+    const text = genAIResponse.text;
 
-    return new Response(readableStream, {
+    return new Response(JSON.stringify({ text }), {
       status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
