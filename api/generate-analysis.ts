@@ -29,7 +29,7 @@ export default async (request: Request) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const stream = await ai.models.generateContentStream({
-        model: 'gemini-2.5-pro',
+        model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
           systemInstruction: "You are a financial analyst providing a stock analysis. Respond in well-structured Markdown format. Use headings, bold text, bullet points, and tables to present the data clearly and professionally, similar to a GitHub README file.",
