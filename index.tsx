@@ -12,6 +12,10 @@ const useStockAnalysisGenerator = () => {
   const [displayType, setDisplayType] = useState('detail');
 
   const [generatedForTicker, setGeneratedForTicker] = useState('');
+
+  const [incomeStatement, setIncomeStatement] = useState(null);
+  const [isFetchingIncomeStatement, setIsFetchingIncomeStatement] = useState(false);
+  const [incomeStatementError, setIncomeStatementError] = useState(null);
   
   const generateAnalysis = useCallback(async () => {
     if (!ticker.trim()) {
@@ -21,6 +25,8 @@ const useStockAnalysisGenerator = () => {
     
     setIsLoading(true);
     setError(null);
+    setIncomeStatement(null);
+    setIncomeStatementError(null);
 
 
     try {
@@ -60,6 +66,45 @@ const useStockAnalysisGenerator = () => {
     }
 
   }, [ticker]);
+
+  const fetchIncomeStatement = useCallback(async () => {
+    if (!generatedForTicker) return;
+
+    setIsFetchingIncomeStatement(true);
+    setIncomeStatementError(null);
+    setIncomeStatement(null);
+
+    const apiKey = "CEQPZ53439BEL78O";
+    const url = `https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol=${generatedForTicker}&apikey=${apiKey}`;
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch income statement. Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data['Error Message']) {
+        throw new Error(data['Error Message']);
+      }
+      
+      if (data['Note']) {
+        throw new Error(data['Note']);
+      }
+      
+      if (!data.annualReports || data.annualReports.length === 0) {
+        throw new Error('No annual reports found for this ticker.');
+      }
+
+      setIncomeStatement(data);
+    } catch (e) {
+      console.error(e);
+      setIncomeStatementError(e.message || 'An error occurred while fetching the income statement.');
+    } finally {
+      setIsFetchingIncomeStatement(false);
+    }
+  }, [generatedForTicker]);
   
   const handleSetTicker = (value) => {
     setTicker(value.toUpperCase());
@@ -77,6 +122,10 @@ const useStockAnalysisGenerator = () => {
     generatedDetailContent,
     generateAnalysis,
     generatedForTicker,
+    incomeStatement,
+    isFetchingIncomeStatement,
+    incomeStatementError,
+    fetchIncomeStatement,
   };
 };
 
@@ -96,6 +145,12 @@ const CheckIcon = (props) => (
 const CopyIcon = (props) => (
   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+  </svg>
+);
+
+const DocumentTextIcon = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
   </svg>
 );
 
@@ -193,7 +248,7 @@ const ErrorMessage = ({ message }) => {
   );
 };
 
-const SuccessDisplay = ({ ticker, content, displayType, onDisplayTypeChange }) => {
+const SuccessDisplay = ({ ticker, content, displayType, onDisplayTypeChange, onFetchIncomeStatement, isFetchingIncomeStatement }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isPerplexityBusy, setIsPerplexityBusy] = useState(false);
   const [isGeminiBusy, setIsGeminiBusy] = useState(false);
@@ -217,45 +272,36 @@ const SuccessDisplay = ({ ticker, content, displayType, onDisplayTypeChange }) =
   const handlePerplexityClick = useCallback(async (e) => {
       e.preventDefault();
       setIsPerplexityBusy(true);
-
       try {
           await navigator.clipboard.writeText(content);
       } catch (err) {
           console.error('Failed to copy text to clipboard:', err);
       }
-
       window.open(perplexityUrl, '_blank', 'noopener,noreferrer');
-
       setTimeout(() => setIsPerplexityBusy(false), 2500);
   }, [content]);
 
   const handleGeminiClick = useCallback(async (e) => {
       e.preventDefault();
       setIsGeminiBusy(true);
-
       try {
           await navigator.clipboard.writeText(content);
       } catch (err) {
           console.error('Failed to copy text to clipboard for Gemini:', err);
       }
-
       window.open(geminiUrl, '_blank', 'noopener,noreferrer');
-
       setTimeout(() => setIsGeminiBusy(false), 2500);
   }, [content]);
   
   const handleChatGptClick = useCallback(async (e) => {
       e.preventDefault();
       setIsChatGptBusy(true);
-
       try {
           await navigator.clipboard.writeText(content);
       } catch (err) {
           console.error('Failed to copy text to clipboard for ChatGPT:', err);
       }
-
       window.open(chatGptUrl, '_blank', 'noopener,noreferrer');
-
       setTimeout(() => setIsChatGptBusy(false), 2500);
   }, [content]);
 
@@ -294,69 +340,36 @@ const SuccessDisplay = ({ ticker, content, displayType, onDisplayTypeChange }) =
       </div>
 
       <div className="flex items-center justify-center gap-4 flex-wrap md:flex-nowrap">
-        <a
-          href={perplexityUrl}
-          onClick={handlePerplexityClick}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Copy & Open in Perplexity"
-          className="w-11 h-11 p-1.5 flex items-center justify-center rounded-lg bg-black shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
-        >
-          {isPerplexityBusy ? (
-            <CheckIcon className="w-full h-full text-green-500" />
-          ) : (
-            <img
-              src="https://framerusercontent.com/images/gcMkPKyj2RX8EOEja8A1GWvCb7E.jpg"
-              alt="Perplexity Logo"
-              className="w-full h-full object-contain"
-            />
-          )}
+        <a href={perplexityUrl} onClick={handlePerplexityClick} target="_blank" rel="noopener noreferrer" title="Copy & Open in Perplexity" className="w-11 h-11 p-1.5 flex items-center justify-center rounded-lg bg-black shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
+          {isPerplexityBusy ? <CheckIcon className="w-full h-full text-green-500" /> : <img src="https://framerusercontent.com/images/gcMkPKyj2RX8EOEja8A1GWvCb7E.jpg" alt="Perplexity Logo" className="w-full h-full object-contain" />}
         </a>
-        <a
-          href={geminiUrl}
-          onClick={handleGeminiClick}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Copy & Open in Gemini"
-          className="w-11 h-11 p-1.5 flex items-center justify-center rounded-lg bg-white shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
-        >
-          {isGeminiBusy ? (
-            <CheckIcon className="w-full h-full text-green-500" />
-          ) : (
-            <img
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Google_Gemini_icon_2025.svg/2048px-Google_Gemini_icon_2025.svg.png"
-              alt="Gemini Logo"
-              className="w-full h-full object-contain"
-            />
-          )}
+        <a href={geminiUrl} onClick={handleGeminiClick} target="_blank" rel="noopener noreferrer" title="Copy & Open in Gemini" className="w-11 h-11 p-1.5 flex items-center justify-center rounded-lg bg-white shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
+          {isGeminiBusy ? <CheckIcon className="w-full h-full text-green-500" /> : <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Google_Gemini_icon_2025.svg/2048px-Google_Gemini_icon_2025.svg.png" alt="Gemini Logo" className="w-full h-full object-contain" />}
         </a>
-        <a
-          href={chatGptUrl}
-          onClick={handleChatGptClick}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Copy & Open in ChatGPT"
-          className="w-11 h-11 p-1.5 flex items-center justify-center rounded-lg bg-white shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
-        >
-          {isChatGptBusy ? (
-            <CheckIcon className="w-full h-full text-green-500" />
-          ) : (
-            <img
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/ChatGPT-Logo.svg/1024px-ChatGPT-Logo.svg.png"
-              alt="ChatGPT Logo"
-              className="w-full h-full object-contain"
-            />
-          )}
+        <a href={chatGptUrl} onClick={handleChatGptClick} target="_blank" rel="noopener noreferrer" title="Copy & Open in ChatGPT" className="w-11 h-11 p-1.5 flex items-center justify-center rounded-lg bg-white shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
+          {isChatGptBusy ? <CheckIcon className="w-full h-full text-green-500" /> : <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/ChatGPT-Logo.svg/1024px-ChatGPT-Logo.svg.png" alt="ChatGPT Logo" className="w-full h-full object-contain" />}
         </a>
+        <button onClick={handleCopy} title="Copy Prompt" className="w-11 h-11 p-1.5 flex items-center justify-center rounded-lg bg-gray-200 shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200">
+          {isCopied ? <CheckIcon className="w-full h-full text-green-500" /> : <CopyIcon className="w-full h-full text-gray-600" />}
+        </button>
+      </div>
+      
+      <div className="mt-5">
         <button
-          onClick={handleCopy}
-          title="Copy Prompt"
-          className="w-11 h-11 p-1.5 flex items-center justify-center rounded-lg bg-gray-200 shadow-md hover:shadow-lg active:shadow-inner transition-all duration-200"
+          onClick={onFetchIncomeStatement}
+          disabled={isFetchingIncomeStatement}
+          className="w-full flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors duration-200 disabled:bg-gray-200/50 disabled:cursor-not-allowed"
         >
-          {isCopied ? (
-            <CheckIcon className="w-full h-full text-green-500" />
+          {isFetchingIncomeStatement ? (
+            <>
+              <Spinner className="w-5 h-5 mr-2" />
+              <span>Fetching Data...</span>
+            </>
           ) : (
-            <CopyIcon className="w-full h-full text-gray-600" />
+            <>
+              <DocumentTextIcon className="w-5 h-5 mr-2" />
+              <span>Fetch Income Statement</span>
+            </>
           )}
         </button>
       </div>
@@ -391,6 +404,68 @@ const Preview = ({ content }) => {
   );
 };
 
+const IncomeStatementDisplay = ({ data, isLoading, error, ticker }) => {
+  if (isLoading) {
+    return (
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-gray-200 shadow-lg flex items-center justify-center">
+        <Spinner className="w-8 h-8 text-[#38B6FF]" />
+        <p className="ml-3 text-gray-600">Loading income statement...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <p className="font-bold">Error fetching data</p>
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (!data || !data.annualReports) {
+    return null;
+  }
+  
+  const formatCurrency = (value) => {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) return 'N/A';
+    return num.toLocaleString('en-US', { style: 'currency', currency: data.reportedCurrency || 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  };
+  
+  const metrics = [
+    { key: 'totalRevenue', label: 'Total Revenue' },
+    { key: 'grossProfit', label: 'Gross Profit' },
+    { key: 'operatingIncome', label: 'Operating Income' },
+    { key: 'netIncome', label: 'Net Income' },
+  ];
+
+  return (
+    <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-gray-200 shadow-lg">
+      <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
+        Annual Income Statements for <span style={{ color: '#38B6FF' }}>{ticker}</span>
+      </h2>
+      <div className="space-y-6">
+        {data.annualReports.slice(0, 5).map((report) => (
+          <div key={report.fiscalDateEnding} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <h3 className="font-semibold text-gray-700 mb-2">
+              Fiscal Year Ending: {report.fiscalDateEnding}
+            </h3>
+            <ul className="space-y-1 text-sm text-gray-600">
+              {metrics.map(metric => (
+                <li key={metric.key} className="flex justify-between items-center">
+                  <span>{metric.label}:</span>
+                  <span className="font-mono font-medium text-gray-800">{formatCurrency(report[metric.key])}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 
 // --- MAIN APP ---
 const App = () => {
@@ -405,6 +480,10 @@ const App = () => {
     generatedDetailContent,
     generateAnalysis,
     generatedForTicker,
+    incomeStatement,
+    isFetchingIncomeStatement,
+    incomeStatementError,
+    fetchIncomeStatement,
   } = useStockAnalysisGenerator();
 
   const isTickerPresent = ticker.trim().length > 0;
@@ -438,21 +517,32 @@ const App = () => {
                   content={contentToDisplay}
                   displayType={displayType}
                   onDisplayTypeChange={setDisplayType}
+                  onFetchIncomeStatement={fetchIncomeStatement}
+                  isFetchingIncomeStatement={isFetchingIncomeStatement}
                 />
               </div>
             )}
           </div>
           
           {/* --- RIGHT COLUMN --- */}
-          {contentToDisplay && !error && (
-            <div className="md:flex-1 min-w-0">
+          <div className="md:flex-1 min-w-0">
+            {contentToDisplay && !error && (
               <div className="mb-8">
                 <Preview content={contentToDisplay} />
               </div>
+            )}
+            
+            {(isFetchingIncomeStatement || incomeStatement || incomeStatementError) && (
               <div className="space-y-8">
+                <IncomeStatementDisplay
+                  data={incomeStatement}
+                  isLoading={isFetchingIncomeStatement}
+                  error={incomeStatementError}
+                  ticker={generatedForTicker}
+                />
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </main>
