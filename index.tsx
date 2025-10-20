@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { marked } from 'marked';
 
 // --- HOOKS ---
 const useStockAnalysisGenerator = () => {
@@ -14,11 +13,6 @@ const useStockAnalysisGenerator = () => {
 
   const [generatedForTicker, setGeneratedForTicker] = useState('');
   
-  const [geminiResponse, setGeminiResponse] = useState('');
-  const [isGeneratingWithGemini, setIsGeneratingWithGemini] = useState(false);
-  const [geminiError, setGeminiError] = useState(null);
-
-
   const generateAnalysis = useCallback(async () => {
     if (!ticker.trim()) {
       setError('Please enter a stock ticker');
@@ -27,8 +21,6 @@ const useStockAnalysisGenerator = () => {
     
     setIsLoading(true);
     setError(null);
-    setGeminiResponse('');
-    setGeminiError(null);
 
 
     try {
@@ -69,42 +61,6 @@ const useStockAnalysisGenerator = () => {
 
   }, [ticker]);
   
-  const generateWithGemini = useCallback(async () => {
-    if (displayType !== 'simple' || !generatedSimpleContent) return;
-
-    setIsGeneratingWithGemini(true);
-    setGeminiError(null);
-    setGeminiResponse('');
-
-    try {
-      const res = await fetch('/.netlify/functions/generate-analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: generatedSimpleContent }),
-      });
-
-      if (!res.ok) {
-        let errorText;
-        try {
-          const errorData = await res.json();
-          errorText = errorData.error || errorData.details || `Server error: ${res.status}`;
-        } catch (parseError) {
-          errorText = `Request failed: ${res.status} ${res.statusText}. The server might be down or misconfigured.`;
-        }
-        throw new Error(errorText);
-      }
-
-      const data = await res.json();
-      setGeminiResponse(data.text);
-
-    } catch (e) {
-      console.error(e);
-      setGeminiError(e.message);
-    } finally {
-      setIsGeneratingWithGemini(false);
-    }
-  }, [generatedSimpleContent, displayType]);
-
   const handleSetTicker = (value) => {
     setTicker(value.toUpperCase());
     if (error) setError(null);
@@ -121,10 +77,6 @@ const useStockAnalysisGenerator = () => {
     generatedDetailContent,
     generateAnalysis,
     generatedForTicker,
-    geminiResponse,
-    isGeneratingWithGemini,
-    geminiError,
-    generateWithGemini,
   };
 };
 
@@ -145,12 +97,6 @@ const CopyIcon = (props) => (
   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
   </svg>
-);
-
-const AiIcon = (props) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.502L16.5 21.75l-.398-1.248a3.375 3.375 0 00-2.455-2.456L12.75 18l1.248-.398a3.375 3.375 0 002.455-2.456L16.5 14.25l.398 1.248a3.375 3.375 0 002.456 2.456l1.248.398-1.248.398a3.375 3.375 0 00-2.456 2.456z" />
-    </svg>
 );
 
 const Spinner = (props) => (
@@ -247,7 +193,7 @@ const ErrorMessage = ({ message }) => {
   );
 };
 
-const SuccessDisplay = ({ ticker, content, displayType, onDisplayTypeChange, onGenerateWithGemini, isGeneratingWithGemini }) => {
+const SuccessDisplay = ({ ticker, content, displayType, onDisplayTypeChange }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isPerplexityBusy, setIsPerplexityBusy] = useState(false);
   const [isGeminiBusy, setIsGeminiBusy] = useState(false);
@@ -402,20 +348,6 @@ const SuccessDisplay = ({ ticker, content, displayType, onDisplayTypeChange, onG
             />
           )}
         </a>
-        {displayType === 'simple' && (
-          <button
-            onClick={onGenerateWithGemini}
-            disabled={isGeneratingWithGemini}
-            title="Generate Analysis with Gemini Pro"
-            className="w-11 h-11 p-1.5 flex items-center justify-center rounded-lg bg-purple-100 shadow-md hover:shadow-lg active:shadow-inner disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-sm transition-all duration-200"
-          >
-            {isGeneratingWithGemini ? (
-              <Spinner className="w-full h-full text-purple-600" />
-            ) : (
-              <AiIcon className="w-full h-full text-purple-600" />
-            )}
-          </button>
-        )}
         <button
           onClick={handleCopy}
           title="Copy Prompt"
@@ -459,37 +391,6 @@ const Preview = ({ content }) => {
   );
 };
 
-const GeminiResponseDisplay = ({ content, ticker }) => {
-    if (!content) return null;
-    
-    const getHtmlContent = () => {
-      try {
-        return marked.parse(content);
-      } catch (error) {
-        console.error("Error parsing markdown:", error);
-        return `<p>Error rendering analysis.</p>`;
-      }
-    };
-  
-    return (
-      <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-        <div className="p-6">
-          <h3 className="text-center font-medium text-gray-700 mb-4">
-            Gemini Pro Analysis for{' '}
-            <span style={{ color: '#38B6FF' }} className="font-bold">
-              {ticker}
-            </span>
-          </h3>
-          <div 
-            className="prose text-sm text-gray-700 max-w-none bg-gray-50 p-4 rounded-lg max-h-[30rem] overflow-y-auto"
-            dangerouslySetInnerHTML={{ __html: getHtmlContent() }}
-          >
-          </div>
-        </div>
-      </div>
-    );
-};
-
 
 // --- MAIN APP ---
 const App = () => {
@@ -504,10 +405,6 @@ const App = () => {
     generatedDetailContent,
     generateAnalysis,
     generatedForTicker,
-    geminiResponse,
-    isGeneratingWithGemini,
-    geminiError,
-    generateWithGemini,
   } = useStockAnalysisGenerator();
 
   const isTickerPresent = ticker.trim().length > 0;
@@ -541,8 +438,6 @@ const App = () => {
                   content={contentToDisplay}
                   displayType={displayType}
                   onDisplayTypeChange={setDisplayType}
-                  onGenerateWithGemini={generateWithGemini}
-                  isGeneratingWithGemini={isGeneratingWithGemini}
                 />
               </div>
             )}
@@ -555,12 +450,6 @@ const App = () => {
                 <Preview content={contentToDisplay} />
               </div>
               <div className="space-y-8">
-                {(geminiResponse || geminiError) && (
-                  <div>
-                    <ErrorMessage message={geminiError} />
-                    <GeminiResponseDisplay content={geminiResponse} ticker={generatedForTicker} />
-                  </div>
-                )}
               </div>
             </div>
           )}

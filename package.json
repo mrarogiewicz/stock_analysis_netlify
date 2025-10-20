@@ -1,8 +1,0 @@
-{
-  "name": "stock-analysis-netlify",
-  "version": "1.0.0",
-  "description": "An application that generates a stock analysis template in Markdown format based on a user-provided stock ticker.",
-  "dependencies": {
-    "@google/genai": "^1.24.0"
-  }
-}
