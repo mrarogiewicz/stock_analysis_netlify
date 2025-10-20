@@ -1,17 +1,26 @@
 // /api/save-analysis.ts
+// IMPORTANT: @vercel/blob is a Vercel-specific feature and will not work on Netlify.
+// To make this "Save to Cloud" feature work, you will need to replace the call to
+// `@vercel/blob`'s `put` function with a different file storage solution,
+// such as Netlify Large Media, or a third-party service like AWS S3 or Cloudinary.
 import { put } from '@vercel/blob';
 
-export default async function handler(request, response) {
+export default async (request, context) => {
   if (request.method !== 'POST') {
-    return response.status(405).json({ message: 'Method Not Allowed' });
+    return new Response(JSON.stringify({ message: 'Method Not Allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {
-    // Vercel's body parser middleware handles JSON parsing for this runtime
-    const { ticker, content } = request.body;
+    const { ticker, content } = await request.json();
 
     if (!ticker || !content) {
-      return response.status(400).json({ error: 'Ticker and content are required.' });
+      return new Response(JSON.stringify({ error: 'Ticker and content are required.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Sanitize ticker to be safe for filenames
@@ -23,11 +32,17 @@ export default async function handler(request, response) {
       contentType: 'text/markdown',
     });
 
-    return response.status(200).json(blob);
+    return new Response(JSON.stringify(blob), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('Error uploading to Vercel Blob:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-    return response.status(500).json({ error: 'Failed to save analysis to cloud storage.', details: errorMessage });
+    return new Response(JSON.stringify({ error: 'Failed to save analysis to cloud storage.', details: errorMessage }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
-}
+};

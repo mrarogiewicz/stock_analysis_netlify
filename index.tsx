@@ -13,10 +13,7 @@ const useStockAnalysisGenerator = () => {
   const [displayType, setDisplayType] = useState('detail');
 
   const [generatedForTicker, setGeneratedForTicker] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
+  
   const [geminiResponse, setGeminiResponse] = useState('');
   const [isGeneratingWithGemini, setIsGeneratingWithGemini] = useState(false);
   const [geminiError, setGeminiError] = useState(null);
@@ -30,8 +27,6 @@ const useStockAnalysisGenerator = () => {
     
     setIsLoading(true);
     setError(null);
-    setSaveError(null);
-    setSaveSuccess(false);
     setGeminiResponse('');
     setGeminiError(null);
 
@@ -74,43 +69,6 @@ const useStockAnalysisGenerator = () => {
 
   }, [ticker]);
   
-  const saveAnalysis = useCallback(async () => {
-    const contentToSave = displayType === 'simple' ? generatedSimpleContent : generatedDetailContent;
-    if (!contentToSave || !generatedForTicker) return;
-
-    setIsSaving(true);
-    setSaveError(null);
-    setSaveSuccess(false);
-
-    try {
-        const res = await fetch('/api/save-analysis', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                ticker: generatedForTicker,
-                content: contentToSave,
-            }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            throw new Error(data.error || 'Failed to save analysis.');
-        }
-
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 2500);
-
-    } catch (e) {
-        console.error(e);
-        setSaveError(e.message);
-    } finally {
-        setIsSaving(false);
-    }
-  }, [generatedSimpleContent, generatedDetailContent, generatedForTicker, displayType]);
-
   const generateWithGemini = useCallback(async () => {
     if (displayType !== 'simple' || !generatedSimpleContent) return;
 
@@ -157,10 +115,6 @@ const useStockAnalysisGenerator = () => {
     generatedDetailContent,
     generateAnalysis,
     generatedForTicker,
-    isSaving,
-    saveError,
-    saveSuccess,
-    saveAnalysis,
     geminiResponse,
     isGeneratingWithGemini,
     geminiError,
@@ -184,12 +138,6 @@ const CheckIcon = (props) => (
 const CopyIcon = (props) => (
   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-  </svg>
-);
-
-const CloudUploadIcon = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" {...props}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
   </svg>
 );
 
@@ -293,7 +241,7 @@ const ErrorMessage = ({ message }) => {
   );
 };
 
-const SuccessDisplay = ({ ticker, content, isSaving, saveSuccess, onSaveAnalysis, displayType, onDisplayTypeChange, onGenerateWithGemini, isGeneratingWithGemini }) => {
+const SuccessDisplay = ({ ticker, content, displayType, onDisplayTypeChange, onGenerateWithGemini, isGeneratingWithGemini }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isPerplexityBusy, setIsPerplexityBusy] = useState(false);
   const [isGeminiBusy, setIsGeminiBusy] = useState(false);
@@ -462,22 +410,6 @@ const SuccessDisplay = ({ ticker, content, isSaving, saveSuccess, onSaveAnalysis
             )}
           </button>
         )}
-        {displayType === 'detail' && (
-            <button
-              onClick={onSaveAnalysis}
-              disabled={isSaving || saveSuccess}
-              title="Save to Cloud"
-              className="w-11 h-11 p-1.5 flex items-center justify-center rounded-lg bg-blue-100 shadow-md hover:shadow-lg active:shadow-inner disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-sm transition-all duration-200"
-            >
-              {isSaving ? (
-                <Spinner className="w-full h-full text-blue-600" />
-              ) : saveSuccess ? (
-                <CheckIcon className="w-full h-full text-green-500" />
-              ) : (
-                <CloudUploadIcon className="w-full h-full text-blue-600" />
-              )}
-            </button>
-        )}
         <button
           onClick={handleCopy}
           title="Copy Prompt"
@@ -566,10 +498,6 @@ const App = () => {
     generatedDetailContent,
     generateAnalysis,
     generatedForTicker,
-    isSaving,
-    saveError,
-    saveSuccess,
-    saveAnalysis,
     geminiResponse,
     isGeneratingWithGemini,
     geminiError,
@@ -605,15 +533,11 @@ const App = () => {
                 <SuccessDisplay 
                   ticker={generatedForTicker} 
                   content={contentToDisplay}
-                  isSaving={isSaving}
-                  saveSuccess={saveSuccess}
-                  onSaveAnalysis={saveAnalysis}
                   displayType={displayType}
                   onDisplayTypeChange={setDisplayType}
                   onGenerateWithGemini={generateWithGemini}
                   isGeneratingWithGemini={isGeneratingWithGemini}
                 />
-                <ErrorMessage message={saveError} />
               </div>
             )}
           </div>

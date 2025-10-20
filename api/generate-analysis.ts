@@ -1,20 +1,29 @@
 // /api/generate-analysis.ts
 import { GoogleGenAI } from '@google/genai';
 
-export default async function handler(request, response) {
+export default async (request, context) => {
   if (request.method !== 'POST') {
-    return response.status(405).json({ message: 'Method Not Allowed' });
+    return new Response(JSON.stringify({ message: 'Method Not Allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {
-    const { prompt } = request.body;
+    const { prompt } = await request.json();
 
     if (!prompt) {
-      return response.status(400).json({ error: 'Prompt is required.' });
+      return new Response(JSON.stringify({ error: 'Prompt is required.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     if (!process.env.API_KEY) {
-        return response.status(500).json({ error: 'The API_KEY environment variable is not set on the server.' });
+        return new Response(JSON.stringify({ error: 'The API_KEY environment variable is not set on the server.' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+        });
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -29,11 +38,17 @@ export default async function handler(request, response) {
     
     const text = genAIResponse.text;
 
-    return response.status(200).json({ text });
+    return new Response(JSON.stringify({ text }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('Error calling Gemini API:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-    return response.status(500).json({ error: 'Failed to generate analysis from Gemini.', details: errorMessage });
+    return new Response(JSON.stringify({ error: 'Failed to generate analysis from Gemini.', details: errorMessage }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
-}
+};
