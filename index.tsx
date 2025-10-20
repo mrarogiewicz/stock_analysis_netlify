@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -93,8 +94,8 @@ const useStockAnalysisGenerator = () => {
         throw new Error(data['Note']);
       }
       
-      if (!data.annualReports || data.annualReports.length === 0) {
-        throw new Error('No annual reports found for this ticker.');
+      if ((!data.annualReports || data.annualReports.length === 0) && (!data.quarterlyReports || data.quarterlyReports.length === 0)) {
+        throw new Error('No income statement data found for this ticker.');
       }
 
       setIncomeStatement(data);
@@ -423,7 +424,7 @@ const IncomeStatementDisplay = ({ data, isLoading, error, ticker }) => {
     );
   }
 
-  if (!data || !data.annualReports) {
+  if (!data || (!data.annualReports?.length && !data.quarterlyReports?.length)) {
     return null;
   }
   
@@ -433,35 +434,72 @@ const IncomeStatementDisplay = ({ data, isLoading, error, ticker }) => {
     return num.toLocaleString('en-US', { style: 'currency', currency: data.reportedCurrency || 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
   
-  const metrics = [
+  const annualMetrics = [
     { key: 'totalRevenue', label: 'Total Revenue' },
     { key: 'grossProfit', label: 'Gross Profit' },
     { key: 'operatingIncome', label: 'Operating Income' },
     { key: 'netIncome', label: 'Net Income' },
   ];
 
+  const quarterlyMetrics = [
+    { key: 'totalRevenue', label: 'Total Revenue' },
+    { key: 'netIncome', label: 'Net Income' },
+  ];
+
+  const hasAnnualReports = data.annualReports && data.annualReports.length > 0;
+  const hasQuarterlyReports = data.quarterlyReports && data.quarterlyReports.length > 0;
+
   return (
-    <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-gray-200 shadow-lg">
-      <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
-        Annual Income Statements for <span style={{ color: '#38B6FF' }}>{ticker}</span>
-      </h2>
-      <div className="space-y-6">
-        {data.annualReports.slice(0, 5).map((report) => (
-          <div key={report.fiscalDateEnding} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <h3 className="font-semibold text-gray-700 mb-2">
-              Fiscal Year Ending: {report.fiscalDateEnding}
-            </h3>
-            <ul className="space-y-1 text-sm text-gray-600">
-              {metrics.map(metric => (
-                <li key={metric.key} className="flex justify-between items-center">
-                  <span>{metric.label}:</span>
-                  <span className="font-mono font-medium text-gray-800">{formatCurrency(report[metric.key])}</span>
-                </li>
-              ))}
-            </ul>
+    <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-gray-200 shadow-lg space-y-8">
+      {hasAnnualReports && (
+        <div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
+            Annual Income Statements for <span style={{ color: '#38B6FF' }}>{ticker}</span>
+          </h2>
+          <div className="space-y-6">
+            {data.annualReports.slice(0, 5).map((report) => (
+              <div key={report.fiscalDateEnding} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h3 className="font-semibold text-gray-700 mb-2">
+                  Fiscal Year Ending: {report.fiscalDateEnding}
+                </h3>
+                <ul className="space-y-1 text-sm text-gray-600">
+                  {annualMetrics.map(metric => (
+                    <li key={metric.key} className="flex justify-between items-center">
+                      <span>{metric.label}:</span>
+                      <span className="font-mono font-medium text-gray-800">{formatCurrency(report[metric.key])}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {hasQuarterlyReports && (
+        <div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
+            Quarterly Income Statements for <span style={{ color: '#38B6FF' }}>{ticker}</span>
+          </h2>
+          <div className="space-y-6">
+            {data.quarterlyReports.slice(0, 8).map((report) => (
+              <div key={report.fiscalDateEnding} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h3 className="font-semibold text-gray-700 mb-2">
+                  Fiscal Quarter Ending: {report.fiscalDateEnding}
+                </h3>
+                <ul className="space-y-1 text-sm text-gray-600">
+                  {quarterlyMetrics.map(metric => (
+                    <li key={metric.key} className="flex justify-between items-center">
+                      <span>{metric.label}:</span>
+                      <span className="font-mono font-medium text-gray-800">{formatCurrency(report[metric.key])}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
